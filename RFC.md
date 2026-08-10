@@ -1,4 +1,4 @@
-# [RFC] Generalize GGUF Model Adapters Beyond the Current Model Families
+# [RFC] A Possible Next Step for GGUF Model Adapters
 
 ## Summary
 
@@ -7,9 +7,9 @@ interface. PR #98 builds on that refactor to add Qwen3.5/3.6 multimodal GGUF
 and MTP support, with dedicated adapters for dense, MoE, vision, and MTP
 models.
 
-This RFC proposes a follow-up step after those changes: make the adapter
-design easier to extend without adding another large model-specific branch
-for every new architecture.
+While looking at the changes in these two PRs, I was wondering whether the
+adapter design could be made a little easier to extend as more architectures
+are added.
 
 A longer-term goal is to make it practical to support a broader range of
 GGUF models published by Unsloth, including dense, MoE, multimodal, and
@@ -36,11 +36,11 @@ As more GGUF models are added, these operations may become increasingly
 difficult to share between adapters. Diffusion loading also continues to
 use a separate integration path.
 
-## Proposed Direction
+## Possible Direction
 
-Keep the `GGUFModelFiles` and `GGUFLoadPlan` interfaces introduced by PR #97
-as the foundation, and move the remaining model-specific behavior toward
-reusable transformations:
+One possible direction would be to keep the `GGUFModelFiles` and
+`GGUFLoadPlan` interfaces introduced by PR #97, and gradually move some of
+the model-specific behavior toward reusable transformations:
 
 ```text
 GGUFModelFiles
@@ -50,35 +50,34 @@ GGUFModelFiles
     → model.load_weights()
 ```
 
-Transformations such as QKV splitting, MoE expert expansion, and multimodal
-projector mapping should be reusable across model adapters instead of being
-implemented repeatedly in architecture-specific code.
+For example, QKV splitting, MoE expert expansion, and multimodal projector
+mapping could potentially be shared across adapters instead of being
+implemented separately each time.
 
 The existing Transformers-based mapping can remain as a fallback. Explicit
 architecture mappings can be added incrementally where they make model
 support more predictable and reduce dependence on dummy Transformers models.
 
-Diffusion loading should eventually use the same file, plan, and
-transformation concepts, while keeping its current integration boundary
-unchanged during the migration.
+It may also be useful for diffusion loading to share the same file, plan, and
+transformation concepts in the future, without changing its current
+integration boundary all at once.
 
-## Suggested Fix
+## Possible Next Step
 
-After PR #97 and PR #98:
+If this direction seems useful after PR #97 and PR #98, a first small step
+could be:
 
-1. Identify transformations shared by the current dense, MoE, vision, and
+1. Look for transformations shared by the current dense, MoE, vision, and
    MTP adapters.
-2. Extract those transformations into small reusable components.
-3. Add a second model family using the shared components instead of adding
-   another special-case implementation.
-4. Add regression tests covering the relevant transformations, including
+2. Extract one or two of them into small reusable components.
+3. Try the components with another model family.
+4. Add regression tests for the relevant transformations, including
    tensor-parallel and sharded GGUF loading.
-5. Use representative models from the Unsloth GGUF collection to guide the
-   next adapter additions.
 
-The goal is not to add a special-case adapter for every model in the
-collection. A new model family should require a localized mapping and a
-small number of model-specific transformations.
+Ideally, adding another model family would mostly involve a localized name
+mapping and a small number of model-specific transformations, rather than
+another large branch in the generic adapter. If this direction makes sense,
+I would be happy to help work on the first step.
 
 ## References
 
